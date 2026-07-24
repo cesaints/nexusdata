@@ -1,0 +1,202 @@
+[project]
+name = "nexusdata"
+version = "0.1.0"
+description = "NexusData — Plataforma Multi-Tenant de Processamento Assíncrono e Inteligente (IDP)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "Carlos", email = "cesaints.engineer@gmail.com" }]
+keywords = ["idp", "multi-tenant", "async", "event-driven", "fastapi", "celery"]
+
+dependencies = [
+    # --- API / ASGI ---
+    "fastapi>=0.115.6",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.20",
+    "websockets>=14.1",
+    # --- Validation / Settings ---
+    "pydantic[email]>=2.10.4",
+    "pydantic-settings>=2.7.0",
+    "orjson>=3.10.12",
+    # --- Persistence ---
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    # --- Cache / State ---
+    "redis>=5.2.1",
+    # --- Messaging / Workers ---
+    "celery>=5.4.0",
+    # --- HTTP client / Webhooks / Resilience ---
+    "httpx>=0.28.1",
+    "tenacity>=9.0.0",
+    # --- Security ---
+    "pyjwt>=2.10.1",
+    "argon2-cffi>=23.1.0",
+    # --- Observability ---
+    "structlog>=24.4.0",
+    "prometheus-client>=0.21.1",
+    "opentelemetry-sdk>=1.29.0",
+    "opentelemetry-api>=1.29.0",
+    "opentelemetry-instrumentation-fastapi>=0.50b0",
+    "opentelemetry-instrumentation-celery>=0.50b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.50b0",
+    "opentelemetry-exporter-otlp-proto-http>=1.29.0",
+]
+
+[project.optional-dependencies]
+ai = [
+    "qdrant-client>=1.12.1",
+]
+
+[project.scripts]
+nexusdata = "nexusdata.__main__:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.4",
+    "mypy>=1.14.0",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "testcontainers[postgres,redis,rabbitmq]>=4.9.0",
+    "httpx>=0.28.1",
+    "asgi-lifespan>=2.1.0",
+    "faker>=33.1.0",
+    "pre-commit>=4.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nexusdata"]
+
+# ---------------------------------------------------------------------------
+# Ruff — linter + formatter (super rápido)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+extend-exclude = ["alembic/versions", "frontend"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "N",         # pep8-naming
+    "UP",        # pyupgrade
+    "B",         # flake8-bugbear
+    "C4",        # flake8-comprehensions
+    "SIM",       # flake8-simplify
+    "ASYNC",     # flake8-async
+    "S",         # flake8-bandit (security)
+    "RUF",       # ruff-specific
+    "PL",        # pylint
+    "T20",       # flake8-print (no print in prod code)
+]
+# NOTA: a família TCH (flake8-type-checking) foi deliberadamente omitida.
+# Pydantic v2, SQLAlchemy (Mapped[...]) e a injeção do FastAPI resolvem
+# anotações em RUNTIME — mover esses imports para `TYPE_CHECKING` quebraria a
+# validação/DI. UP047 (generics PEP 695 em métodos) omitido por estilo.
+ignore = [
+    "PLR0913",   # muitos argumentos (construtores com DI são ok)
+    "PLC0415",   # import fora do topo (lazy imports intencionais: composition root)
+    "UP047",     # generics PEP 695 em funções (mantemos TypeVar)
+    "S101",      # assert (liberado em testes; ver overrides)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106", "PLR2004", "T20", "ARG"]
+"alembic/**/*.py" = ["E501", "N999", "S608"]
+"scripts/**/*.py" = ["T20", "S106"]
+"src/nexusdata/worker/tasks.py" = ["PLW0603"]  # estado por processo do worker
+
+[tool.ruff.lint.isort]
+known-first-party = ["nexusdata"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI usa chamadas nos defaults (Depends/Query/Header…) — padrão idiomático.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Header",
+    "fastapi.Path", "fastapi.Body", "fastapi.Cookie",
+    "fastapi.Security", "fastapi.File", "fastapi.Form",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# Mypy — type checking estrito
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+no_implicit_reexport = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+namespace_packages = true
+explicit_package_bases = true
+exclude = ["alembic/versions/", "frontend/", "build/", "dist/"]
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "testcontainers.*", "qdrant_client.*"]
+ignore_missing_imports = true
+
+# Os decorators do Celery (@task, signals) não são tipados; permitimos que
+# eles decorem funções sem que o strict mode reclame — apenas no worker.
+[[tool.mypy.overrides]]
+module = ["nexusdata.worker.tasks", "nexusdata.worker.celery_app"]
+disallow_untyped_decorators = false
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=nexusdata",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=xml",
+    "--cov-report=html",
+    "--cov-fail-under=80",
+]
+markers = [
+    "unit: testes unitários rápidos e isolados (mockam I/O)",
+    "integration: testes de integração que sobem containers reais",
+    "e2e: testes ponta a ponta",
+]
+filterwarnings = ["error", "ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/nexusdata"]
+omit = ["*/alembic/*", "*/__main__.py", "*/worker/celery_app.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+    "\\.\\.\\.",
+]
