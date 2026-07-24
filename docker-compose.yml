@@ -121,6 +121,13 @@ services:
       - "grafanadata:/var/lib/grafana"
     depends_on: [prometheus]
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports: ["5173:80"]
+    depends_on: [api]
+
 volumes:
   pgdata:
   redisdata:
