@@ -10,16 +10,16 @@ keywords = ["idp", "multi-tenant", "async", "event-driven", "fastapi", "celery"]
 
 dependencies = [
     # --- API / ASGI ---
-    "fastapi>=0.115.6",
-    "uvicorn[standard]>=0.34.0",
+    "fastapi>=0.140.0",
+    "uvicorn[standard]>=0.51.0",
     "python-multipart>=0.0.20",
     "websockets>=14.1",
     # --- Validation / Settings ---
-    "pydantic[email]>=2.10.4",
+    "pydantic[email]>=2.13.4",
     "pydantic-settings>=2.7.0",
     "orjson>=3.10.12",
     # --- Persistence ---
-    "sqlalchemy[asyncio]>=2.0.36",
+    "sqlalchemy[asyncio]>=2.0.51",
     "asyncpg>=0.30.0",
     "alembic>=1.14.0",
     # --- Cache / State ---
@@ -34,7 +34,7 @@ dependencies = [
     "argon2-cffi>=23.1.0",
     # --- Observability ---
     "structlog>=24.4.0",
-    "prometheus-client>=0.21.1",
+    "prometheus-client>=0.26.0",
     "opentelemetry-sdk>=1.29.0",
     "opentelemetry-api>=1.29.0",
     "opentelemetry-instrumentation-fastapi>=0.50b0",
@@ -59,10 +59,10 @@ dev = [
     "pytest-asyncio>=0.25.0",
     "pytest-cov>=6.0.0",
     "pytest-mock>=3.14.0",
-    "testcontainers[postgres,redis,rabbitmq]>=4.9.0",
+    "testcontainers[postgres,redis,rabbitmq]>=4.15.0",
     "httpx>=0.28.1",
     "asgi-lifespan>=2.1.0",
-    "faker>=33.1.0",
+    "faker>=40.36.0",
     "fakeredis>=2.26.0",
     "pre-commit>=4.0.1",
 ]
