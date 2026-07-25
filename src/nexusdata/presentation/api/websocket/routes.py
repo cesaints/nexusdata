@@ -28,7 +28,8 @@ async def jobs_websocket(
 
     tenant_id = str(claims.tenant_id)
     manager = websocket.app.state.ws_manager
-    await manager.connect(tenant_id, websocket)
+    if not await manager.connect(tenant_id, websocket):
+        return  # limite de conexões atingido; connect() já fechou o socket.
     try:
         # Mantém a conexão viva; ignoramos mensagens do cliente (canal só de push).
         while True:

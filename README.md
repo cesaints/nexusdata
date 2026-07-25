@@ -121,6 +121,31 @@ presentation ─▶ application ─▶ domain ◀─ infrastructure
 - **Segredos** sempre em `SecretStr`; validador impede subir produção com segredo padrão/fraco.
 - Celery aceita **apenas JSON** (nunca `pickle` — evita RCE por desserialização).
 
+### 🎯 Red-team (o sistema foi atacado antes de ser aprovado)
+
+Uma equipe de segurança independente (4 lentes: authz/isolamento, injeção/SSRF,
+cripto/vazamento, DoS/concorrência) tentou derrubar o sistema. **Achados reais
+corrigidos e cobertos por testes de regressão:**
+
+| # | Falha | Correção |
+|---|---|---|
+| A | SSRF por **DNS-rebinding** (TOCTOU) no webhook | Resolve 1×, **fixa o IP validado** na conexão (SNI/cert seguem o hostname) |
+| B | **Bypass de rate-limit** por header forjável (buckets ilimitados) | Chave sempre por **IP do socket** (não confia em `X-API-Key`/`Authorization`) |
+| C | Job preso em `PROCESSING` em erro não-`ProcessorError` | `except Exception` amplo roteia p/ retry/falha |
+| D | Redelivery duplicada em `PROCESSING` levantava erro | No-op idempotente para job já em processamento |
+| E | `raw_payload`/corpo sem limite → OOM | Middleware de tamanho de corpo (413) |
+| F | Reserva de idempotência presa por 24h em crash | TTL curto (60s) no placeholder `in_progress` |
+| G | WebSocket sem limite → exaustão de FD | Cap por tenant e global |
+| H | Tenant desativado ainda autenticava (API key) | Auth de API key valida `tenant.is_active` |
+| I | Hardening de produção incompleto | Bloqueia senhas default de DB/RabbitMQ e exige chave de IA |
+| J | Regex de correlation-id aceitava `\n` final | `fullmatch` (defesa contra CRLF) |
+
+**Tradeoffs residuais conscientes** (documentados, endereçados no roadmap):
+o secret do webhook é reversível por design → **cifrar em repouso (KMS)**; o token
+do WebSocket vai na query string → migrar para **subprotocolo/ticket**; o *dual-write*
+(job `PENDING` + publish) precisa de **Transactional Outbox**; revogação de JWT via
+denylist (`jti`); `/metrics` deve ficar **restrito por rede** em produção.
+
 ---
 
 ## 🚀 Começando (ambiente local)
@@ -238,10 +263,13 @@ nexusdata/
 
 ## 🗺️ Roadmap (pós-slice)
 
-- [ ] Transactional Outbox para publicação garantida (dual-write)
+- [ ] Transactional Outbox + sweeper para publicação garantida (fecha o dual-write)
+- [ ] Cifrar secrets de webhook em repouso (envelope encryption / KMS)
+- [ ] Token do WebSocket via subprotocolo ou ticket de uso único (fora da query string)
+- [ ] Denylist de JWT (revogação via `jti`) + rotação com detecção de replay
 - [ ] Integração real de IA (Claude/OpenAI) + busca semântica (Qdrant)
 - [ ] Terraform (ECS/RDS/ElastiCache) — IaC nível arquiteto
-- [ ] Denylist de JWT (revogação via `jti`) + rotação de refresh token
+- [ ] `/metrics` restrito por rede + rate-limit por principal autenticado (sliding window)
 
 ---
 

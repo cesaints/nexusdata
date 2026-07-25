@@ -43,7 +43,10 @@ def test_mappers_roundtrip() -> None:
     assert mp.user_to_entity(mp.user_to_model(user)).role is Role.ADMIN
 
     key = ApiKey(
-        tenant_id=tid, name="k", prefix="nxk_x", key_hash="h",
+        tenant_id=tid,
+        name="k",
+        prefix="nxk_x",
+        key_hash="h",
         scopes=frozenset({ApiKeyScope.JOBS_READ}),
     )
     assert ApiKeyScope.JOBS_READ in mp.api_key_to_entity(mp.api_key_to_model(key)).scopes
@@ -55,7 +58,9 @@ def test_mappers_roundtrip() -> None:
     assert mp.job_to_entity(mp.job_to_model(job)).status is JobStatus.PROCESSING
 
     wh = WebhookEndpoint(
-        tenant_id=tid, url="https://x.test", secret="s",
+        tenant_id=tid,
+        url="https://x.test",
+        secret="s",
         events=frozenset({WebhookEventType.JOB_COMPLETED}),
     )
     assert WebhookEventType.JOB_COMPLETED in mp.webhook_to_entity(mp.webhook_to_model(wh)).events

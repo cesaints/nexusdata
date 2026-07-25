@@ -48,7 +48,12 @@ async def test_tenant_and_user_crud(uow_factory: SqlAlchemyUnitOfWorkFactory) ->
     async with uow_factory() as uow:
         await uow.tenants.add(tenant)
         await uow.users.add(
-            User(tenant_id=tenant.id, email=f"a-{uuid4().hex}@x.com", password_hash="h", role=Role.ADMIN)
+            User(
+                tenant_id=tenant.id,
+                email=f"a-{uuid4().hex}@x.com",
+                password_hash="h",
+                role=Role.ADMIN,
+            )
         )
         await uow.commit()
 
@@ -122,7 +127,10 @@ async def test_job_update_persists(uow_factory: SqlAlchemyUnitOfWorkFactory) -> 
 async def test_api_key_revoke(uow_factory: SqlAlchemyUnitOfWorkFactory) -> None:
     t = Tenant(name="T", slug=f"t-{uuid4().hex[:8]}")
     key = ApiKey(
-        tenant_id=t.id, name="k", prefix=f"nxk_{uuid4().hex[:8]}", key_hash="h",
+        tenant_id=t.id,
+        name="k",
+        prefix=f"nxk_{uuid4().hex[:8]}",
+        key_hash="h",
         scopes=frozenset({ApiKeyScope.JOBS_READ}),
     )
     async with uow_factory() as uow:

@@ -20,7 +20,7 @@ _log = structlog.get_logger(__name__)
 _DEMO = RegisterTenantCommand(
     tenant_name="Acme Corp",
     tenant_slug="acme",
-    admin_email="admin@acme.test",
+    admin_email="admin@acme.com",
     admin_password="ChangeMe-Str0ng!",
 )
 

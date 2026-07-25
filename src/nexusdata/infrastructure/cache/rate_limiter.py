@@ -36,9 +36,7 @@ class RedisRateLimiter:
     async def check(self, *, key: str, limit: int, window_seconds: int) -> RateLimitResult:
         redis_key = f"ratelimit:{key}"
         count = int(
-            await self._redis.eval(
-                _FIXED_WINDOW_LUA, 1, redis_key, str(window_seconds * 1000)
-            )
+            await self._redis.eval(_FIXED_WINDOW_LUA, 1, redis_key, str(window_seconds * 1000))
         )
         if count > limit:
             ttl_ms = int(await self._redis.pttl(redis_key))

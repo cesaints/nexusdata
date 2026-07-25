@@ -1,17 +1,14 @@
 """Middleware de rate limiting distribuído (Redis).
 
-Identidade do limite (em ordem de precedência):
-  1. Prefixo da API key (X-API-Key)   — limite por integração.
-  2. Fingerprint do JWT (hash)        — limite por sessão/usuário.
-  3. IP do cliente                    — fallback anônimo.
+Identidade do limite: SEMPRE o IP do socket do cliente. Chaves derivadas de
+headers não-validados (X-API-Key/Authorization) foram removidas — eram
+forjáveis e permitiam bypass (buckets ilimitados) e DoS direcionado.
 
 Fail-open deliberado: se o Redis estiver indisponível, a requisição passa (e
 logamos). Preferimos disponibilidade a bloquear tudo por uma falha de cache.
 """
 
 from __future__ import annotations
-
-import hashlib
 
 import structlog
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -72,14 +69,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _identity(request: Request) -> str:
-        api_key = request.headers.get("x-api-key")
-        if api_key:
-            prefix = api_key.split(".", 1)[0]
-            return f"apikey:{prefix}"
-        auth = request.headers.get("authorization", "")
-        if auth.lower().startswith("bearer "):
-            token = auth[7:]
-            fp = hashlib.sha256(token.encode()).hexdigest()[:24]
-            return f"jwt:{fp}"
+        # SEMPRE por IP do socket. NÃO usar X-API-Key/Authorization aqui: são
+        # não-validados nesta etapa (pré-auth) e forjáveis — um atacante criaria
+        # buckets ilimitados (bypass) ou miraria o bucket de uma vítima (DoS).
+        # `request.client.host` é o peer real (respeita X-Forwarded-For só quando
+        # o uvicorn roda atrás de um proxy confiável via --forwarded-allow-ips).
+        # Limites por principal autenticado ficam para a camada de dependência.
         client_host = request.client.host if request.client else "unknown"
         return f"ip:{client_host}"

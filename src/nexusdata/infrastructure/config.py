@@ -14,8 +14,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "staging", "production"]
 
-# Valor sentinela do .env.example — proibido em produção.
+# Valores default de desenvolvimento — proibidos em produção.
 _DEV_SECRET_SENTINEL = "CHANGE_ME_dev_only_secret_do_not_use_in_production_00000000"  # noqa: S105
+_DEFAULT_DEV_PASSWORD = "nexus_dev_password"  # noqa: S105
 _MIN_SECRET_LEN = 32
 
 
@@ -69,6 +70,9 @@ class Settings(BaseSettings):
     # --- Rate limiting ---
     rate_limit_requests: int = 100
     rate_limit_window_seconds: int = 60
+
+    # --- Limite de corpo da requisição (anti-DoS de memória) ---
+    max_request_body_bytes: int = 2_097_152  # 2 MiB
 
     # --- Idempotência ---
     idempotency_ttl_seconds: int = 86_400
@@ -139,14 +143,21 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _enforce_production_hardening(self) -> Settings:
-        if self.is_production:
-            secret = self.jwt_secret_key.get_secret_value()
-            if secret == _DEV_SECRET_SENTINEL:
-                raise ValueError("NEXUS_JWT_SECRET_KEY não pode usar o valor padrão em produção")
-            if len(secret) < _MIN_SECRET_LEN:
-                raise ValueError(f"NEXUS_JWT_SECRET_KEY deve ter >= {_MIN_SECRET_LEN} caracteres")
-            if self.debug:
-                raise ValueError("NEXUS_DEBUG deve ser false em produção")
+        if not self.is_production:
+            return self
+        secret = self.jwt_secret_key.get_secret_value()
+        if secret == _DEV_SECRET_SENTINEL:
+            raise ValueError("NEXUS_JWT_SECRET_KEY não pode usar o valor padrão em produção")
+        if len(secret) < _MIN_SECRET_LEN:
+            raise ValueError(f"NEXUS_JWT_SECRET_KEY deve ter >= {_MIN_SECRET_LEN} caracteres")
+        if self.debug:
+            raise ValueError("NEXUS_DEBUG deve ser false em produção")
+        if self.postgres_password.get_secret_value() == _DEFAULT_DEV_PASSWORD:
+            raise ValueError("NEXUS_POSTGRES_PASSWORD não pode usar o default em produção")
+        if self.rabbitmq_password.get_secret_value() == _DEFAULT_DEV_PASSWORD:
+            raise ValueError("NEXUS_RABBITMQ_PASSWORD não pode usar o default em produção")
+        if self.ai_provider != "mock" and not self.ai_api_key.get_secret_value():
+            raise ValueError(f"NEXUS_AI_API_KEY é obrigatório para o provider '{self.ai_provider}'")
         return self
 
 

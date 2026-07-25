@@ -42,9 +42,7 @@ def app(settings: Settings, container: Any) -> Iterator[Any]:
 @pytest_asyncio.fixture
 async def client(app: Any) -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    ) as ac:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as ac:
         yield ac
 
 
@@ -74,9 +72,7 @@ async def login(
     email: str = "admin@acme.com",
     password: str = "Sup3rStr0ngPass!",
 ) -> str:
-    resp = await client.post(
-        "/api/v1/auth/login", json={"email": email, "password": password}
-    )
+    resp = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert resp.status_code == 200, resp.text
     return str(resp.json()["access_token"])
 
