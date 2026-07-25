@@ -7,13 +7,13 @@ import pytest
 from pydantic import SecretStr
 
 from nexusdata.domain.exceptions import AuthenticationError
+from nexusdata.domain.value_objects.enums import Role
 from nexusdata.infrastructure.security import (
     ApiKeyServiceImpl,
     Argon2PasswordHasher,
     HmacWebhookSigner,
     JwtTokenService,
 )
-from nexusdata.domain.value_objects.enums import Role
 from tests.fakes import FakeClock
 
 pytestmark = pytest.mark.unit

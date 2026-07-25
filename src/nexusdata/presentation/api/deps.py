@@ -68,12 +68,19 @@ async def _authenticate_api_key(container: Container, raw_key: str) -> AuthConte
 
     async with container.uow_factory() as uow:
         key = await uow.api_keys.get_by_prefix(prefix)
+        tenant = await uow.tenants.get(key.tenant_id) if key is not None else None
 
     # Verificação em tempo constante mesmo se a chave não existir.
     reference_hash = key.key_hash if key is not None else _DUMMY_KEY_HASH
     secret_ok = api_keys.verify(secret, reference_hash)
     now = container.clock.now()
-    if key is None or not secret_ok or not key.is_usable(now):
+    if (
+        key is None
+        or not secret_ok
+        or not key.is_usable(now)
+        or tenant is None
+        or not tenant.is_active  # tenant desativado revoga suas API keys na hora
+    ):
         raise AuthenticationError("API key inválida")
 
     # Marca último uso (best-effort; não bloqueia a request se falhar).

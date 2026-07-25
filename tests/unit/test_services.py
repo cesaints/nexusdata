@@ -19,17 +19,13 @@ pytestmark = pytest.mark.unit
 
 
 def _auth(tenant_id: Any, user_id: Any) -> AuthContext:
-    return AuthContext(
-        user_id=user_id, tenant_id=tenant_id, role=Role.ADMIN, method=AuthMethod.JWT
-    )
+    return AuthContext(user_id=user_id, tenant_id=tenant_id, role=Role.ADMIN, method=AuthMethod.JWT)
 
 
 async def _ingest(container: Any, *, payload: dict[str, object] | None = None) -> Any:
     tenant, user = uuid4(), uuid4()
     auth = _auth(tenant, user)
-    cmd = IngestDocumentCommand(
-        tenant_id=tenant, submitted_by=user, raw_payload=payload
-    )
+    cmd = IngestDocumentCommand(tenant_id=tenant, submitted_by=user, raw_payload=payload)
     result = await container.document_service.ingest(cmd, auth=auth)
     return tenant, user, result
 
@@ -73,9 +69,7 @@ async def test_processing_exhausts_and_fails(container: Any) -> None:
 async def test_idempotent_ingest_returns_same_job(container: Any) -> None:
     tenant, user = uuid4(), uuid4()
     auth = _auth(tenant, user)
-    cmd = IngestDocumentCommand(
-        tenant_id=tenant, submitted_by=user, idempotency_key="dup-key"
-    )
+    cmd = IngestDocumentCommand(tenant_id=tenant, submitted_by=user, idempotency_key="dup-key")
     first = await container.document_service.ingest(cmd, auth=auth)
     second = await container.document_service.ingest(cmd, auth=auth)
     assert first.job_id == second.job_id

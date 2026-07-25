@@ -46,8 +46,8 @@ class JwtTokenService:
             sub=user_id,
             tid=tenant_id,
             role=role.value,
-            token_type="access",
-            ttl=self._access_ttl,  # noqa: S106 - tipo de token
+            token_type="access",  # noqa: S106 - tipo de token, não senha
+            ttl=self._access_ttl,
         )
 
     def create_refresh_token(self, *, user_id: UUID, tenant_id: UUID) -> str:
@@ -55,8 +55,8 @@ class JwtTokenService:
             sub=user_id,
             tid=tenant_id,
             role=None,
-            token_type="refresh",
-            ttl=self._refresh_ttl,  # noqa: S106 - tipo de token
+            token_type="refresh",  # noqa: S106 - tipo de token, não senha
+            ttl=self._refresh_ttl,
         )
 
     def decode(self, token: str) -> TokenClaims:

@@ -9,12 +9,47 @@ from uuid import uuid4
 import structlog
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from nexusdata.infrastructure.observability.logging import bind_correlation_id
 from nexusdata.infrastructure.observability.metrics import observe_http_request
 
-_CID_RE = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
+# fullmatch + sem '$': evita que um '\n' final passe (defesa contra CRLF).
+_CID_RE = re.compile(r"[A-Za-z0-9._\-]{1,128}")
+
+
+class ContentSizeLimitMiddleware(BaseHTTPMiddleware):
+    """Rejeita corpos maiores que o limite (anti-DoS de memória) via 413.
+
+    Cobre o vetor comum (JSON grande com Content-Length). Um proxy reverso deve
+    impor o mesmo limite para requisições sem Content-Length (chunked)."""
+
+    def __init__(self, app: object, *, max_bytes: int) -> None:
+        super().__init__(app)  # type: ignore[arg-type]
+        self._max = max_bytes
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        raw = request.headers.get("content-length")
+        if raw is not None:
+            try:
+                if int(raw) > self._max:
+                    return JSONResponse(
+                        status_code=413,
+                        content={
+                            "error": {
+                                "code": "payload_too_large",
+                                "message": "corpo da requisição excede o limite",
+                            }
+                        },
+                    )
+            except ValueError:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": {"code": "bad_request", "message": "Content-Length inválido"}
+                    },
+                )
+        return await call_next(request)
 
 
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
@@ -22,7 +57,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         incoming = request.headers.get("x-correlation-id") or request.headers.get("x-request-id")
-        cid = incoming if incoming and _CID_RE.match(incoming) else uuid4().hex
+        cid = incoming if incoming and _CID_RE.fullmatch(incoming) else uuid4().hex
         bind_correlation_id(cid)
         structlog.contextvars.bind_contextvars(correlation_id=cid)
         try:

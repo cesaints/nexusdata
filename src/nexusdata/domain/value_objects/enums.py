@@ -11,7 +11,12 @@ class Role(StrEnum):
     ADMIN = "admin"
     """Administrador do tenant: gerencia usuários, API keys e webhooks."""
     USER = "user"
-    """Usuário comum: ingere documentos e consulta seus próprios jobs."""
+    """Usuário comum: ingere documentos e consulta os jobs do tenant.
+
+    A fronteira de isolamento é o TENANT (não o usuário): membros de um mesmo
+    tenant compartilham visibilidade dos jobs. O que separa ADMIN de USER é a
+    gestão de credenciais (API keys/webhooks), não a visibilidade de dados.
+    """
 
 
 class ApiKeyScope(StrEnum):

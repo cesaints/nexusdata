@@ -111,7 +111,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "S105", "S106", "PLR2004", "T20", "ARG"]
+"tests/**/*.py" = ["S101", "S105", "S106", "S107", "PLR2004", "T20", "ARG", "RUF059"]
 "alembic/**/*.py" = ["E501", "N999", "S608"]
 "scripts/**/*.py" = ["T20", "S106"]
 "src/nexusdata/worker/tasks.py" = ["PLW0603"]  # estado por processo do worker

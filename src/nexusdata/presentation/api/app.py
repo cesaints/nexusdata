@@ -15,6 +15,7 @@ from nexusdata.infrastructure.observability.logging import configure_logging
 from nexusdata.infrastructure.observability.tracing import setup_tracing
 from nexusdata.presentation.api.errors import install_exception_handlers
 from nexusdata.presentation.api.middleware import (
+    ContentSizeLimitMiddleware,
     CorrelationIdMiddleware,
     MetricsMiddleware,
     RateLimitMiddleware,
@@ -68,10 +69,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # Middlewares — a ÚLTIMA chamada é a camada mais externa (roda primeiro).
-    # Ordem externa->interna: CORS, Correlation, Security, RateLimit, Metrics.
+    # Ordem externa->interna: CORS, Correlation, ContentSize, Security, RateLimit, Metrics.
     app.add_middleware(MetricsMiddleware)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_production)
+    app.add_middleware(ContentSizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
     app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(
         CORSMiddleware,

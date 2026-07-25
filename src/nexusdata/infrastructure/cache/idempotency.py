@@ -19,6 +19,11 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+# TTL curto para a reserva "in_progress": se o processo morrer entre start() e
+# finish()/release(), a chave se libera em segundos (não fica presa pelo TTL longo
+# da resposta). A ingestão start→finish é rápida, então isso é folgado.
+_IN_PROGRESS_TTL_SECONDS = 60
+
 
 class IdempotencyOutcome(Enum):
     NEW = auto()
@@ -53,14 +58,18 @@ class IdempotencyStore:
         redis_key = self._key(tenant_id, key)
         placeholder = json.dumps({"state": "in_progress", "fp": fingerprint})
 
-        was_set = await self._redis.set(redis_key, placeholder, nx=True, ex=ttl_seconds)
+        was_set = await self._redis.set(
+            redis_key, placeholder, nx=True, ex=_IN_PROGRESS_TTL_SECONDS
+        )
         if was_set:
             return IdempotencyLookup(IdempotencyOutcome.NEW)
 
         raw = await self._redis.get(redis_key)
         if raw is None:
             # Expirou entre SET e GET: tenta reservar mais uma vez.
-            was_set = await self._redis.set(redis_key, placeholder, nx=True, ex=ttl_seconds)
+            was_set = await self._redis.set(
+                redis_key, placeholder, nx=True, ex=_IN_PROGRESS_TTL_SECONDS
+            )
             if was_set:
                 return IdempotencyLookup(IdempotencyOutcome.NEW)
             raw = await self._redis.get(redis_key)

@@ -79,9 +79,7 @@ async def test_idempotency_key_reuse_conflict(client: httpx.AsyncClient) -> None
     headers = await admin_headers(client)
     h = {**headers, "Idempotency-Key": "same-key"}
     await client.post("/api/v1/documents/process", headers=h, json={"doc_type": "generic"})
-    clash = await client.post(
-        "/api/v1/documents/process", headers=h, json={"doc_type": "invoice"}
-    )
+    clash = await client.post("/api/v1/documents/process", headers=h, json={"doc_type": "invoice"})
     assert clash.status_code == 422
     assert clash.json()["error"]["code"] == "idempotency_key_reuse"
 
@@ -148,9 +146,7 @@ async def test_webhook_requires_https(client: httpx.AsyncClient) -> None:
 
 async def test_unknown_job_is_404(client: httpx.AsyncClient) -> None:
     headers = await admin_headers(client)
-    resp = await client.get(
-        "/api/v1/jobs/00000000-0000-0000-0000-000000000000", headers=headers
-    )
+    resp = await client.get("/api/v1/jobs/00000000-0000-0000-0000-000000000000", headers=headers)
     assert resp.status_code == 404
 
 
@@ -181,9 +177,7 @@ async def test_readiness(client: httpx.AsyncClient) -> None:
 
 async def test_metrics_endpoint(client: httpx.AsyncClient) -> None:
     headers = await admin_headers(client)
-    await client.post(
-        "/api/v1/documents/process", headers=headers, json={"doc_type": "generic"}
-    )
+    await client.post("/api/v1/documents/process", headers=headers, json={"doc_type": "generic"})
     resp = await client.get("/metrics")
     assert resp.status_code == 200
     assert b"nexus_jobs_pending" in resp.content
@@ -204,9 +198,7 @@ async def test_refresh_flow(client: httpx.AsyncClient) -> None:
         json={"email": "admin@acme.com", "password": "Sup3rStr0ngPass!"},
     )
     refresh_token = login_resp.json()["refresh_token"]
-    resp = await client.post(
-        "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
-    )
+    resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     assert resp.status_code == 200
     assert "access_token" in resp.json()
 
@@ -214,7 +206,8 @@ async def test_refresh_flow(client: httpx.AsyncClient) -> None:
 async def test_list_and_delete_api_key(client: httpx.AsyncClient) -> None:
     headers = await admin_headers(client)
     created = await client.post(
-        "/api/v1/api-keys", headers=headers,
+        "/api/v1/api-keys",
+        headers=headers,
         json={"name": "k", "scopes": ["jobs:read"]},
     )
     key_id = created.json()["id"]
@@ -227,7 +220,8 @@ async def test_list_and_delete_api_key(client: httpx.AsyncClient) -> None:
 async def test_list_and_delete_webhook(client: httpx.AsyncClient) -> None:
     headers = await admin_headers(client)
     created = await client.post(
-        "/api/v1/webhooks", headers=headers,
+        "/api/v1/webhooks",
+        headers=headers,
         json={"url": "https://client.test/hook", "events": ["job.completed"]},
     )
     wid = created.json()["id"]

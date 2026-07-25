@@ -10,8 +10,8 @@ from __future__ import annotations
 from uuid import UUID
 
 from nexusdata.application.ports import Clock, EventPublisher, Notifier, UnitOfWorkFactory
-from nexusdata.application.ports.processor import DocumentProcessor, ProcessorError
-from nexusdata.domain.value_objects.enums import WebhookEventType
+from nexusdata.application.ports.processor import DocumentProcessor
+from nexusdata.domain.value_objects.enums import JobStatus, WebhookEventType
 
 
 class RetryableProcessingError(Exception):
@@ -47,6 +47,10 @@ class DocumentProcessingService:
                 return  # job desconhecido: entrega órfã, ignora com segurança.
             if job.is_terminal:
                 return  # já processado (at-least-once delivery): idempotente.
+            if job.status is JobStatus.PROCESSING:
+                # Entrega duplicada enquanto outra execução processa: no-op.
+                # (RETRYING segue adiante — é o fluxo legítimo de reprocesso.)
+                return
 
             document = await uow.documents.get(job.tenant_id, job.document_id)
             if document is None:
@@ -63,9 +67,12 @@ class DocumentProcessingService:
         await self._notifier.notify_job_update(tenant_id=job.tenant_id, job=job)
 
         # 2) Processamento externo (fora da transação — pode demorar).
+        #    Captura Exception ampla (timeout do provider, SoftTimeLimit, bug):
+        #    QUALQUER falha roteia para _handle_failure — o job nunca fica preso
+        #    em PROCESSING. (CancelledError é BaseException e não é capturado.)
         try:
             result = await self._processor.process(document)
-        except ProcessorError as exc:
+        except Exception as exc:
             await self._handle_failure(job_id, reason=str(exc))
             return
 
