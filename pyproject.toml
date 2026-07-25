@@ -63,6 +63,7 @@ dev = [
     "httpx>=0.28.1",
     "asgi-lifespan>=2.1.0",
     "faker>=33.1.0",
+    "fakeredis>=2.26.0",
     "pre-commit>=4.0.1",
 ]
 
@@ -110,7 +111,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "S105", "S106", "PLR2004", "T20", "ARG"]
+"tests/**/*.py" = ["S101", "S105", "S106", "S107", "PLR2004", "T20", "ARG", "RUF059"]
 "alembic/**/*.py" = ["E501", "N999", "S608"]
 "scripts/**/*.py" = ["T20", "S106"]
 "src/nexusdata/worker/tasks.py" = ["PLW0603"]  # estado por processo do worker
@@ -190,7 +191,15 @@ filterwarnings = ["error", "ignore::DeprecationWarning"]
 [tool.coverage.run]
 branch = true
 source = ["src/nexusdata"]
-omit = ["*/alembic/*", "*/__main__.py", "*/worker/celery_app.py"]
+# Excluídos: entrypoints/glue de runtime que são exercitados end-to-end (não
+# em unit tests): tarefas Celery, app do Celery, tracing OTel opcional, __main__.
+omit = [
+    "*/alembic/*",
+    "*/__main__.py",
+    "*/worker/celery_app.py",
+    "*/worker/tasks.py",
+    "*/observability/tracing.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [

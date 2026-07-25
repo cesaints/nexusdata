@@ -69,6 +69,12 @@ worker: ## Roda o worker Celery localmente
 	uv run celery -A nexusdata.worker.celery_app.celery_app worker \
 		--loglevel=info --concurrency=4
 
+front: ## Roda o dashboard (Vite dev server)
+	cd frontend && npm install && npm run dev
+
+front-build: ## Builda o dashboard para produção
+	cd frontend && npm install && npm run build
+
 clean: ## Limpa caches
 	rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov coverage.xml .coverage
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
