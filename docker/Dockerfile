@@ -4,7 +4,7 @@
 # Multi-stage: builder resolve deps com uv; runtime é slim e roda como não-root.
 # =============================================================================
 
-FROM python:3.12-slim AS base
+FROM python:3.13-slim AS base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
