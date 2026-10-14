@@ -26,6 +26,11 @@ from nexusdata.infrastructure.repositories import (
 )
 
 
+def _is_unique_violation(error: IntegrityError) -> bool:
+    sqlstate: object = getattr(error.orig, "sqlstate", None)
+    return sqlstate == "23505"
+
+
 class SqlAlchemyUnitOfWork:
     """Implementa o port UnitOfWork sobre uma AsyncSession dedicada.
 
@@ -72,6 +77,8 @@ class SqlAlchemyUnitOfWork:
         try:
             if exc_type is not None:
                 await self.session.rollback()
+                if isinstance(exc, IntegrityError) and _is_unique_violation(exc):
+                    raise DuplicateEntityError("violação de restrição de unicidade") from exc
         finally:
             await self.session.close()
             self._session = None
@@ -81,7 +88,9 @@ class SqlAlchemyUnitOfWork:
             await self.session.commit()
         except IntegrityError as err:
             await self.session.rollback()
-            raise DuplicateEntityError("violação de restrição de unicidade") from err
+            if _is_unique_violation(err):
+                raise DuplicateEntityError("violação de restrição de unicidade") from err
+            raise
 
     async def rollback(self) -> None:
         await self.session.rollback()

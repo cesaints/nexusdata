@@ -17,6 +17,7 @@ from testcontainers.postgres import PostgresContainer
 from nexusdata.domain.entities import ApiKey, Document, ProcessingJob, Tenant, User
 from nexusdata.domain.exceptions import DuplicateEntityError
 from nexusdata.domain.value_objects.enums import ApiKeyScope, JobStatus, Role
+from nexusdata.infrastructure.database import mappers
 from nexusdata.infrastructure.database.engine import create_session_factory
 from nexusdata.infrastructure.database.models import Base
 from nexusdata.infrastructure.database.unit_of_work import (
@@ -62,8 +63,10 @@ async def test_tenant_and_user_crud(uow_factory: SqlAlchemyUnitOfWorkFactory) ->
         assert got is not None and got.id == tenant.id
 
 
+@pytest.mark.parametrize("error_stage", ["flush", "commit"])
 async def test_idempotency_unique_constraint(
     uow_factory: SqlAlchemyUnitOfWorkFactory,
+    error_stage: str,
 ) -> None:
     tenant = Tenant(name="T", slug=f"t-{uuid4().hex[:8]}")
     doc = Document(tenant_id=tenant.id, submitted_by=uuid4())
@@ -78,9 +81,14 @@ async def test_idempotency_unique_constraint(
     # Segundo job com a MESMA idempotency_key → viola a unique parcial.
     with pytest.raises(DuplicateEntityError):
         async with uow_factory() as uow:
-            await uow.jobs.add(
-                ProcessingJob(tenant_id=tenant.id, document_id=doc.id, idempotency_key="dup")
+            duplicate = ProcessingJob(
+                tenant_id=tenant.id, document_id=doc.id, idempotency_key="dup"
             )
+            if error_stage == "flush":
+                await uow.jobs.add(duplicate)
+            else:
+                # Stage the row without a repository flush: commit must translate its own error.
+                uow.session.add(mappers.job_to_model(duplicate))
             await uow.commit()
 
 
